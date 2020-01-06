@@ -19,16 +19,30 @@ def load_data(train_file_name, test_file_name):
     housing practice competition
     @return: pair of tuples of observations and responses
     """
-    test_df = pd.read_csv(test_file_name, header = 1)
-    train_df = pd.read_csv(train_file_name, header = 1)
-    return (train_df.iloc[:,1:-1], train_df.iloc[:,-1] ),(test_df.iloc[:,1:-1], test_df.iloc[:, -1])
+    test_df = pd.read_csv(test_file_name, index_col='Id')    
+    train_df = pd.read_csv(train_file_name, index_col='Id')
+
+    def encode_cats(df):
+        """ one-hot encode all categorical values in data frame
+        @param df: a dataframe
+        @return: one hot encoded equivalents of non-numerical
+        columns in data frame
+        """
+        df_numeric = df.select_dtypes(include = np.number)
+        non_numeric_columns = df.select_dtypes(include=np.object).columns
+        df_one_hot =  pd.get_dummies(df[non_numeric_columns])
+        return pd.concat([df_numeric, df_one_hot], axis  = 1)
+    
+    return (encode_cats(train_df.iloc[:,1:-1]), train_df.iloc[:,-1] ), \
+        encode_cats(test_df)
 
 def build_model():
     """ build keras model
     @return: keras model
     """
     model = models.Sequential()
-    model.add(layers.Dense(64, activation='relu', input_shape=(train_data.shape[1],)))
+    model.add(layers.Embedding(1, input_shape=(train_data.shape[1],), output_dim=64))
+    model.add(layers.Dense(64, activation='relu'))
     model.add(layers.Dense(64, activation='relu'))
     model.add(layers.Dense(1))
     model.compile(optimizer='rmsprop',
@@ -37,12 +51,8 @@ def build_model():
     return model
 
 if __name__ == "__main__":
-    (train_data, train_targets), (test_data, test_targets) = load_data('/git/data/house/train.csv', '/git/data/house/test.csv')
+    (train_data, train_targets), test_data = load_data('/git/data/house/train.csv', '/git/data/house/test.csv')
 
-    logger.debug(f'train_data {train_data}')
-    logger.debug(f'train_targets {train_targets}')
-    logger.debug(f'test_data {test_data}')
-    logger.debug(f'test_targets {test_targets}')
 
     mean = train_data.mean(axis=0)
     train_data -= mean
@@ -55,6 +65,8 @@ if __name__ == "__main__":
     num_val_samples = len(train_data) // k
     num_epochs = 100
     all_scores = []
+    verbose_mode = 1
+    
 
     for i in range(k):
         print(f'Processing fold # {i}')
@@ -62,28 +74,28 @@ if __name__ == "__main__":
         val_targets = train_targets[i * num_val_samples: (i+1) * num_val_samples]
         
         partial_train_data = np.concatenate(
-            [train_data[:i * num_val_samples],
-             train_data[(i+1) * num_val_samples:]],
-            axis=0)
+                            [train_data[:i * num_val_samples],
+                            train_data[(i+1) * num_val_samples:]],
+                            axis=0)
         partial_train_targets = np.concatenate(
-        [train_targets[:i * num_val_samples],
-         train_targets[(i+1)*num_val_samples:]],
-            axis=0)
-    model = build_model()
-    model.fit(partial_train_data,
-              partial_train_targets,
-            epochs=num_epochs,
-              batch_size=1,
-              verbose=0)
+                            [train_targets[:i * num_val_samples],
+                            train_targets[(i+1)*num_val_samples:]],
+                            axis=0)
 
-    val_mse, val_mae = model.evaluate(val_data, val_targets, verbose=0)
-    all_scores.append(val_mae)
+        model = build_model()
+        model.fit(partial_train_data,
+                  partial_train_targets,
+                  epochs=num_epochs,
+                  batch_size=1,
+                  verbose=verbose_mode)
 
+        val_mse, val_mae = model.evaluate(val_data, val_targets, verbose=0)
+        all_scores.append(val_mae)
+    
     logger.debug(f'all_scores : {all_scores}')
     logger.debug(f'mean all scores : {np.mean(all_scores)}')
 
-    model = build_model()
-    model.fit(train_data, train_targets, epochs=80, batch_size=16, verbose=0)
-    test_mse_score, test_mae_score = model.evaluate(test_data, test_targets)
 
-    logger.debug(f'test_mae_score {test_mae_score}')
+    predictions = model.predict(test_data)
+
+    logger.debug(f'predictions {predictions}')
