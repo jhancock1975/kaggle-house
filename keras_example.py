@@ -1,6 +1,6 @@
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-nimport matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from jh_logger import get_logger
 import logging
 from keras import models
