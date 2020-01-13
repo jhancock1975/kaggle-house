@@ -1,10 +1,13 @@
 import numpy as np # linear algebra
 import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-import matplotlib.pyplot as plt
+nimport matplotlib.pyplot as plt
 from jh_logger import get_logger
 import logging
 from keras import models
 from keras import layers
+import util
+
+util.seed_random_number_generators()
 
 # this is some pratice code based on
 # https://www.kaggle.com/shanekonaung/boston-housing-price-dataset-with-keras
@@ -41,9 +44,13 @@ def build_model():
     @return: keras model
     """
     model = models.Sequential()
-    model.add(layers.Embedding(1, input_shape=(train_data.shape[1],), output_dim=64))
+    model.add(layers.Dropout(0.2, input_shape=(train_data.shape[1],)))
     model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dropout(0.2))
     model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dropout(0.2))
+    model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dropout(0.2))
     model.add(layers.Dense(1))
     model.compile(optimizer='rmsprop',
               loss='mse',
